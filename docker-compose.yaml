@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  mysql:
+    container_name: mysql
+    image: mysql:8.0
+    restart: always
+    # M1/M2 Macで起動エラーが出る場合の保険（必要な場合のみコメントアウトを外す）
+    # platform: linux/amd64
+    command: --default-authentication-plugin=mysql_native_password
+    
+    volumes:
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql_data:/var/lib/mysql
+      
+    environment:
+      MYSQL_ROOT_PASSWORD: rootPassword
+      MYSQL_DATABASE: sample
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      TZ: Asia/Tokyo
+    ports:
+      - "3306:3306"
+
+volumes:
+  mysql_data:
