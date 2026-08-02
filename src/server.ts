@@ -4,22 +4,26 @@ import cors from "cors";
 import mysql, { Connection } from "mysql2/promise";
 import * as dotenv from "dotenv";
 
+// 🌟 自分たちが作った各層のパーツをインポート
 import { TodoRepository } from "./repositories/todo/todo-repository";
-import { Todo } from "./models/todo";
-import { NotFoundDataError } from "./utils/error";
+import { TodoService } from "./services/todo/todo-service";
+import { TodoController } from "./controllers/todo/todo-controller";
 
 async function main() {
   dotenv.config();
   const { PORT, MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASS, MYSQL_DB } = process.env;
   const app: Express = express();
 
+  // サーバーの立ち上げ
   app.listen(parseInt(PORT as string), function () {
-    console.log(("Node.js is listening to PORT: " + PORT) as string);
+    console.log("Node.js is listening to PORT: " + PORT);
   });
 
+  // ミドルウェア設定
   app.disable("x-powered-by");
   app.use(cors()).use(express.json());
 
+  // データベースへの接続
   const connection: Connection = await mysql.createConnection({
     host: MYSQL_HOST,
     port: parseInt(MYSQL_PORT as string),
@@ -28,89 +32,18 @@ async function main() {
     database: MYSQL_DB,
   });
 
-  // 🌟 ここがポイント：Repositoryを生成し、DB接続情報を渡す（依存性の注入）
+  // 🌟 三層アーキテクチャの組み立て（DI：依存性の注入の連鎖）
+  // 1. データベース接続を「Repository（倉庫番）」に渡す
   const todoRepository = new TodoRepository(connection);
+  
+  // 2. Repositoryを「Service（脳みそ）」に渡す
+  const todoService = new TodoService(todoRepository);
+  
+  // 3. Serviceを「Controller（受付係）」に渡す
+  const todoController = new TodoController(todoService);
 
-  // --- APIのルーティング ---
-
-  // 1. 全件取得
-  app.get("/api/todos", async (req, res) => {
-    // SQLを書かずに、Repositoryのメソッドを呼ぶだけ！
-    const result = await todoRepository.findAll();
-
-    if (result instanceof Error) {
-      res.status(500).send();
-      return;
-    }
-    res.json(result);
-  });
-
-  // 2. 1件取得
-  app.get("/api/todos/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    const result = await todoRepository.getByID(id);
-
-    // Repositoryが独自エラーを返してくれたおかげで、404判定が簡単にできる！
-    if (result instanceof NotFoundDataError) {
-      res.status(404).send();
-      return;
-    }
-    if (result instanceof Error) {
-      res.status(500).send();
-      return;
-    }
-    res.json(result);
-  });
-
-  // 3. 作成
-  app.post("/api/todos", async (req, res) => {
-    const todo: Todo = req.body;
-    const result = await todoRepository.create(todo);
-
-    if (result instanceof Error) {
-      res.status(500).send();
-      return;
-    }
-    res.status(201).json(result);
-  });
-
-  // 4. 更新
-  app.put("/api/todos/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    const todo: Todo = req.body;
-
-    // ① 存在チェック
-    const getResult = await todoRepository.getByID(id);
-    if (getResult instanceof NotFoundDataError) {
-      res.status(404).send();
-      return;
-    }
-
-    // ② 更新実行
-    const result = await todoRepository.update(id, todo);
-    if (result instanceof Error) {
-      res.status(500).send();
-      return;
-    }
-    res.status(200).send();
-  });
-
-  // 5. 削除
-  app.delete("/api/todos/:id", async (req, res) => {
-    const id = parseInt(req.params.id);
-    const result = await todoRepository.delete(id);
-
-    if (result instanceof NotFoundDataError) {
-      res.status(404).send();
-      return;
-    }
-    if (result instanceof Error) {
-      res.status(500).send();
-      return;
-    }
-    // 削除成功時は 204 No Content を返すのが一般的です
-    res.status(204).send();
-  });
+  // 🌟 最後に、組み立てたControllerのルーティングをExpressアプリに登録する
+  app.use("/api/todos", todoController.router);
 }
 
 main();
