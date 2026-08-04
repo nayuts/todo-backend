@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "test": "jest tests/unit --runInBand --coverage --forceExit --detectOpenHandles",
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts"
