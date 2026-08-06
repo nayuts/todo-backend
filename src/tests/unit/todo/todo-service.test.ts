@@ -1,7 +1,8 @@
 // src/tests/unit/todo/todo-service.test.ts
-import { Todo } from "../../../../models/todo";
-import { ITodoRepository } from "../../../repositories/interface";
+import { Todo } from "../../../models/todo";
+import { ITodoRepository } from "../../../repositories/todo/todo-repository.interface";
 import { TodoService } from "../../../services/todo/todo-service";
+import { NotFoundDataError } from "../../../utils/error";
 
 // 🌟 ① テスト用の「偽物のRepository（モック）」を作る関数
 function createMockTodoRepository(): ITodoRepository {
@@ -83,4 +84,50 @@ describe("TodoServiceの単体テスト", () => {
     });
   });
 
+  //演習課題
+  describe("update のテスト", () => {
+    it("正常系： エラーが起きず、null や undefined が返ってくること", async () => {
+      //モック作成
+      const mockRepository = createMockTodoRepository();
+      const mockTodo: Todo = { id: 1, title: "テスト", description: "詳細" };
+
+      //todoが存在するか確認...
+      mockRepository.getByID = jest.fn().mockResolvedValue(mockTodo);
+      //updateをしてundefined
+      mockRepository.update = jest.fn().mockResolvedValue(undefined);
+
+      //更新データ作成
+      const updateTodo: Todo = { title: "てすてす", description: "詳細詳細" };
+
+      const service = new TodoService(mockRepository);
+      const result = await service.update(1, updateTodo);
+
+      expect(result).toBe(undefined);
+    });
+
+    it("異常系： getByID でデータが見つからなかった場合、NotFoundDataErrorを返すこと", async () => {
+      const mockRepository = createMockTodoRepository();
+      // わざとエラーを返すように設定
+      mockRepository.getByID = jest.fn().mockResolvedValue(new NotFoundDataError("見つかりません！"));
+      
+      const updateTodo: Todo = { title: "てすてす", description: "詳細詳細" };
+      const service = new TodoService(mockRepository);
+      const result = await service.update(1, updateTodo);
+      // 結果が NotFoundDataError クラスになっているかを検証
+      expect(result instanceof NotFoundDataError).toBeTruthy();
+    });
+    });
+
+    describe("delete のテスト", () => {
+        it("正常系： エラーが起きず、null や undefined が返ってくること。", async () => {
+            const mockRepository = createMockTodoRepository();
+        
+            mockRepository.delete = jest.fn().mockResolvedValue(undefined);
+
+            const service = new TodoService(mockRepository);
+            const result = await service.delete(1);
+
+            expect(result).toBe(undefined);
+        });
+    });
 });

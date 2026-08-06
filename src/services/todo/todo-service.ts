@@ -1,7 +1,7 @@
 // src/services/todo/todo-service.ts
 import { Todo } from "../../models/todo";
 import { ITodoRepository } from "../../repositories/todo/todo-repository.interface";
-import { ITodoService } from "./todo-service.intercface";
+import { ITodoService } from "./todo-service.interface";
 
 export class TodoService implements ITodoService {
   private todoRepository: ITodoRepository;
