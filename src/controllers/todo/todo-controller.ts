@@ -1,6 +1,6 @@
 // src/controllers/todo/todo-controller.ts
 import { Router } from "express";
-import { ITodoService } from "../../services/todo/todo-service.intercface";
+import { ITodoService } from "../../services/todo/todo-service.interface";
 import { NotFoundDataError } from "../../utils/error";
 import { Todo } from "../../models/todo";
 
