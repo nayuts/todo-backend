@@ -1,8 +1,9 @@
 // src/server.ts
 import express, { Express } from "express";
 import cors from "cors";
-import mysql, { Connection } from "mysql2/promise";
+// import mysql, { Connection } from "mysql2/promise";
 import * as dotenv from "dotenv";
+import { PrismaClient } from "./generated/prisma/client";
 
 // 🌟 自分たちが作った各層のパーツをインポート
 import { TodoRepository } from "./repositories/todo/todo-repository";
@@ -23,18 +24,11 @@ async function main() {
   app.disable("x-powered-by");
   app.use(cors()).use(express.json());
 
-  // データベースへの接続
-  const connection: Connection = await mysql.createConnection({
-    host: MYSQL_HOST,
-    port: parseInt(MYSQL_PORT as string),
-    user: MYSQL_USER,
-    password: MYSQL_PASS,
-    database: MYSQL_DB,
-  });
+  // 1. データベース接続をPrismaに変更
+  const prisma = new PrismaClient();
 
-  // 🌟 三層アーキテクチャの組み立て（DI：依存性の注入の連鎖）
-  // 1. データベース接続を「Repository（倉庫番）」に渡す
-  const todoRepository = new TodoRepository(connection);
+  // 2. PrismaをRepositoryに渡す
+  const todoRepository = new TodoRepository(prisma);
   
   // 2. Repositoryを「Service（脳みそ）」に渡す
   const todoService = new TodoService(todoRepository);

@@ -1,79 +1,84 @@
 // src/repositories/todo/todo-repository.ts
 import { Todo } from "../../models/todo";
-import { Connection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
+import { PrismaClient } from "../../generated/prisma/client";
 import { NotFoundDataError, SqlError } from "../../utils/error";
 import { ITodoRepository } from "./todo-repository.interface";
 
 export class TodoRepository implements ITodoRepository {
-  private connection: Connection;
+  private prisma: PrismaClient;
 
-  // コンストラクタ：外部からデータベースの接続情報を受け取ります
-  constructor(connection: Connection) {
-    this.connection = connection;
+  // connectionの代わりに、PrismaClientを受け取るように変更
+  constructor(prisma: PrismaClient) {
+    this.prisma = prisma;
   }
 
   public async findAll(): Promise<Todo[] | Error> {
     try {
-      const sql = "SELECT * FROM todos";
-      const [rows] = await this.connection.execute<Todo[] & RowDataPacket[]>(sql);
-      return rows;
+      // 生SQL: SELECT * FROM todos;
+      return await this.prisma.todo.findMany();
     } catch (err) {
-      console.error(`TodoRepository.findAll: ${err}`);
       return new SqlError(`sql error`);
     }
   }
 
   public async getByID(id: number): Promise<Todo | Error> {
     try {
-      const sql = "SELECT * FROM todos WHERE id = ?";
-      const [rows] = await this.connection.execute<Todo[] & RowDataPacket[]>(sql, [id]);
+      // 生SQL: SELECT * FROM todos WHERE id = ?;
+      const todo = await this.prisma.todo.findUnique({
+        where: { id: id }
+      });
 
-      if (rows.length === 0) {
-        return new NotFoundDataError(`todo is not found`);
-      }
-      return rows[0];
+      if (!todo) return new NotFoundDataError(`todo is not found`);
+      return todo;
     } catch (err) {
-      console.error(`TodoRepository.getByID: ${err}`);
       return new SqlError(`sql error`);
     }
   }
 
   public async create(todo: Todo): Promise<number | Error> {
     try {
-      // 🛡️ セキュリティ対策：?（プレースホルダー）を使ってSQLインジェクションを防ぎます！
-      const sql = "INSERT INTO todos (title, description) VALUES (?, ?)";
-      const [result] = await this.connection.execute<ResultSetHeader>(sql, [todo.title, todo.description]);
-      return result.insertId;
+      // 生SQL: INSERT INTO todos...
+      const result = await this.prisma.todo.create({
+        data: {
+          title: todo.title,
+          description: todo.description
+        }
+      });
+      return result.id;
     } catch (err) {
-      console.error(`TodoRepository.create: ${err}`);
       return new SqlError(`sql error`);
     }
   }
 
   public async update(id: number, todo: Todo): Promise<void | Error> {
     try {
-      const sql = "UPDATE todos SET title = ?, description = ? WHERE id = ?";
-      const [result] = await this.connection.execute<ResultSetHeader>(sql, [todo.title, todo.description, id]);
-      
-      if (result.affectedRows === 0) {
+      // 生SQL: UPDATE todos SET...
+      await this.prisma.todo.update({
+        where: { id: id },
+        data: {
+          title: todo.title,
+          description: todo.description
+        }
+      });
+    } catch (err) {
+      // Prismaの「見つからないエラー」のコード
+      if (err instanceof Error && err.message.includes("Record to update not found")) {
         return new NotFoundDataError(`todo is not found`);
       }
-    } catch (err) {
-      console.error(`TodoRepository.update: ${err}`);
       return new SqlError(`sql error`);
     }
   }
 
   public async delete(id: number): Promise<void | Error> {
     try {
-      const sql = "DELETE FROM todos WHERE id = ?";
-      const [result] = await this.connection.execute<ResultSetHeader>(sql, [id]);
-      
-      if (result.affectedRows === 0) {
+      // 生SQL: DELETE FROM todos...
+      await this.prisma.todo.delete({
+        where: { id: id }
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("Record to delete does not exist")) {
         return new NotFoundDataError(`todo is not found`);
       }
-    } catch (err) {
-      console.error(`TodoRepository.delete: ${err}`);
       return new SqlError(`sql error`);
     }
   }
