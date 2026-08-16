@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model accounts {
+  id      Int     @id
+  name    String? @db.VarChar(50)
+  balance Int?
+}
+
+model employees {
+  emp_no     Int      @id
+  birth_date DateTime @db.Date
+  first_name String   @db.VarChar(14)
+  last_name  String   @db.VarChar(16)
+  hire_date  DateTime @db.Date
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @default(now()) @db.DateTime(0)
+}
+
+model likes {
+  id       Int @id @default(autoincrement())
+  user_id  Int
+  tweet_id Int
+}
+
+model Todo {
+  id          Int      @id @default(autoincrement())
+  title       String   @default("") @db.VarChar(64)
+  description String   @db.Text
+  created_at  DateTime @default(now()) @db.DateTime(0)
+  updated_at  DateTime @default(now()) @db.DateTime(0)
+
+  @@map("todos") // テーブル名を矯正する設定
+}
+
+model tweets {
+  id      Int    @id @default(autoincrement())
+  user_id Int
+  content String @db.Text
+}
+
+model users {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(20)
+  email      String   @db.VarChar(50)
+  password   String   @db.VarChar(20)
+  created_at DateTime @default(now()) @db.DateTime(0)
+  updated_at DateTime @default(now()) @db.DateTime(0)
+}
