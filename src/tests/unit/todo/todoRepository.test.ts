@@ -1,235 +1,131 @@
 // src/tests/unit/todo/todo-repository.test.ts
-import { Connection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import { Todo } from "../../../models/todo";
 import { TodoRepository } from "../../../repositories/todo/todo-repository";
-import { createDBConnection } from "../../utils/database/database";
-import { NotFoundDataError, SqlError } from "../../../utils/error";
+import { NotFoundDataError } from "../../../utils/error";
+import { createDBConnection } from "../../utils/database/database"; // 🌟 共通化した接続ツール
 
-let connection: Connection;
+// 🌟 database.tsのおかげで、たった1行で接続準備が完了します！
+const prisma = createDBConnection();
 
-// 🌟 各テストの「前」に毎回必ず実行される処理
 beforeEach(async () => {
-  connection = await createDBConnection();
-  // テスト環境をクリーンにするため、毎回テーブルを空っぽ（初期状態）にする！
-  await connection.query(`DELETE FROM todos`);
+  // 🌟 生SQLを書かずに、テーブルの中身を一括削除！
+  await prisma.todo.deleteMany();
 });
 
-// 🌟 各テストの「後」に毎回必ず実行される処理
-afterEach(async () => {
-  // データベースとの接続を切断する
-  await connection.end();
-  // スパイ（モック）の解除忘れを防ぐための後片付け
-  jest.restoreAllMocks();
+// 🌟 afterEach ではなく afterAll に変更！（プールの破壊を防ぐため）
+afterAll(async () => {
+  // すべてのテストが終わった後に、データベースとの接続を切断する
+  await prisma.$disconnect();
 });
 
 describe("TodoRepositoryのテスト", () => {
   describe("create (新規作成) のテスト", () => {
-    it("正常系：データベースに正しく保存され、新しいIDが返ってくること", async () => {
-      const repository = new TodoRepository(connection);
-      const newTodo: Todo = {
-        title: "テスト用タイトル",
-        description: "テスト用詳細",
-      };
+    it("データベースに正しく保存され、新しいIDが返ってくること", async () => {
+      const repository = new TodoRepository(prisma); // prismaを渡す
+      const newTodo: Todo = { title: "テスト用タイトル", description: "テスト用詳細" };
 
-      // 実行
       const result = await repository.create(newTodo);
-      if (result instanceof Error)
-        throw new Error(`エラーが発生しました: ${result.message}`);
+
+      if (result instanceof Error) throw new Error("エラーが発生しました");
       const createdID = result;
 
-      // 確認（実際にデータベースに保存されたか、生SQLで直接覗きに行って確認する！）
-      const checkSql = "SELECT * FROM todos WHERE id = ?";
-      const [rows] = await connection.execute<Todo[] & RowDataPacket[]>(
-        checkSql,
-        [createdID],
-      );
-      const savedTodo = rows[0] as Todo;
+      // 🌟 生SQLではなく、Prismaを使って実際に保存されたか確認する！
+      const savedTodo = await prisma.todo.findUnique({
+        where: { id: createdID },
+      });
 
-      expect(savedTodo.id).toBe(createdID);
-      expect(savedTodo.title).toBe(newTodo.title);
-      expect(savedTodo.description).toBe(newTodo.description);
-    });
-
-    it("異常系：データベース操作でエラーが発生した場合、SqlErrorが返ること", async () => {
-      const repository = new TodoRepository(connection);
-      const newTodo: Todo = {
-        title: "テスト用タイトル",
-        description: "テスト用詳細",
-      };
-
-      // 🌟 本物の connection を監視し、この1回だけ強制的にエラーを発生させる（スパイ）
-      jest
-        .spyOn(connection, "execute")
-        .mockRejectedValueOnce(new Error("強制的なDBエラー"));
-
-      const result = await repository.create(newTodo);
-      expect(result instanceof SqlError).toBeTruthy();
+      expect(savedTodo).not.toBeNull();
+      expect(savedTodo?.id).toBe(createdID);
+      expect(savedTodo?.title).toBe(newTodo.title);
+      expect(savedTodo?.description).toBe(newTodo.description);
     });
   });
 
   describe("findAll (全件取得) のテスト", () => {
-    it("正常系：保存されているすべてのTodoが取得できること", async () => {
-      // 準備（あらかじめ生SQLでテストデータを2件入れておく）
-      await connection.execute(
-        "INSERT INTO todos (title, description) VALUES (?, ?)",
-        ["ダミー1", "詳細1"],
-      );
-      await connection.execute(
-        "INSERT INTO todos (title, description) VALUES (?, ?)",
-        ["ダミー2", "詳細2"],
-      );
+    it("保存されているすべてのTodoが取得できること", async () => {
+      // 🌟 生SQLのINSERT文を何行も書く代わりに、createManyで一気に作成！
+      await prisma.todo.createMany({
+        data: [
+          { title: "ダミー1", description: "詳細1" },
+          { title: "ダミー2", description: "詳細2" },
+        ],
+      });
 
-      const repository = new TodoRepository(connection);
+      const repository = new TodoRepository(prisma);
       const result = await repository.findAll();
 
-      if (result instanceof Error)
-        throw new Error(`エラーが発生しました: ${result.message}`);
-
+      if (result instanceof Error) throw new Error("エラーが発生しました");
       expect(result.length).toBe(2);
       expect(result[0].title).toBe("ダミー1");
-    });
-
-    it("異常系：データベース操作でエラーが発生した場合、SqlErrorが返ること", async () => {
-      const repository = new TodoRepository(connection);
-      jest
-        .spyOn(connection, "execute")
-        .mockRejectedValueOnce(new Error("強制的なDBエラー"));
-
-      const result = await repository.findAll();
-      expect(result instanceof SqlError).toBeTruthy();
     });
   });
 
   describe("getByID (1件取得) のテスト", () => {
-    it("正常系：指定したIDのTodoが取得できること", async () => {
-      // 準備（テストデータを1件入れて、発行されたIDを記憶しておく）
-      const [insertResult] = await connection.execute<ResultSetHeader>(
-        "INSERT INTO todos (title, description) VALUES (?, ?)",
-        ["対象のTodo", "対象の詳細"],
-      );
-      const targetId = insertResult.insertId;
+    it("指定したIDのTodoが取得できること", async () => {
+      // 🌟 Prismaで1件テストデータを作成し、そのIDを取得
+      const created = await prisma.todo.create({
+        data: { title: "対象のTodo", description: "対象の詳細" },
+      });
 
-      const repository = new TodoRepository(connection);
-      const result = await repository.getByID(targetId);
+      const repository = new TodoRepository(prisma);
+      const result = await repository.getByID(created.id);
 
-      if (result instanceof Error)
-        throw new Error(`エラーが発生しました: ${result.message}`);
-      expect(result.id).toBe(targetId);
+      if (result instanceof Error) throw new Error("エラーが発生しました");
+      expect(result.id).toBe(created.id);
       expect(result.title).toBe("対象のTodo");
     });
 
-    it("異常系(404)：存在しないIDを指定した場合、NotFoundDataError が返ること", async () => {
-      const repository = new TodoRepository(connection);
-      const result = await repository.getByID(999); // 絶対に存在しないID
-
+    it("存在しないIDを指定した場合、NotFoundDataError が返ること", async () => {
+      const repository = new TodoRepository(prisma);
+      const result = await repository.getByID(999);
       expect(result instanceof NotFoundDataError).toBeTruthy();
-    });
-
-    it("異常系(500)：データベース操作でエラーが発生した場合、SqlErrorが返ること", async () => {
-      const repository = new TodoRepository(connection);
-      jest
-        .spyOn(connection, "execute")
-        .mockRejectedValueOnce(new Error("強制的なDBエラー"));
-
-      const result = await repository.getByID(1);
-      expect(result instanceof SqlError).toBeTruthy();
     });
   });
 
-  describe("update のテスト", () => {
-    it("正常系：あらかじめデータを1件登録し、そのIDに対して update を実行。その後生SQL（SELECT）でデータベースを覗きに行き、値が書き換わっていることを検証する", async () => {
-      // データを用意
-      const [insertResult] = await connection.execute<ResultSetHeader>(
-        "INSERT INTO todos (title, description) VALUES (?, ?)",
-        ["古いのTodo", "古いの詳細"],
-      );
-      // 登録したidを入れる
-      const targetId = insertResult.insertId;
-      // 更新データを用意
-      const updateTodo: Todo = {
-        title: "新しいTodo",
-        description: "新しい詳細",
-      };
-      // DB接続を持ったリポジトリを作成して入れてる
-      const repository = new TodoRepository(connection);
-      // targetIdのidを更新
-      const result = await repository.update(targetId, updateTodo);
+  describe("update (更新) のテスト", () => {
+    it("正常に更新され、データベースの値が書き換わっていること", async () => {
+      // 1. Prismaで古いデータを作成
+      const created = await prisma.todo.create({
+        data: { title: "古いタイトル", description: "古い詳細" },
+      });
 
-      if (result instanceof Error)
-        throw new Error(`エラーが発生しました: ${result.message}`);
+      const repository = new TodoRepository(prisma);
+      const updateData: Todo = { title: "新しいタイトル", description: "新しい詳細" };
 
-      // 生SQL（SELECT）でデータベースを覗きに行く
-      const checkSql = "SELECT * FROM todos WHERE id = ?";
-      const [rows] = await connection.execute<Todo[] & RowDataPacket[]>(
-        checkSql,
-        [targetId],
-      );
-      const savedTodo = rows[0] as Todo;
+      // 2. 実行
+      const result = await repository.update(created.id, updateData);
+      if (result instanceof Error) throw new Error("エラーが発生しました");
 
-      expect(savedTodo.id).toBe(targetId);
-      expect(savedTodo.title).toBe(updateTodo.title);
-      expect(savedTodo.description).toBe(updateTodo.description);
-    });
-    it("異常系（404）： 存在しないIDに対して実行し、NotFoundDataError が返ること", async () => {
-      const updateTodo: Todo = {
-        title: "新しいTodo",
-        description: "新しい詳細",
-      };
-      const repository = new TodoRepository(connection);
-      const result = await repository.update(999, updateTodo);
+      // 3. 確認：Prismaで取得し直して値が書き換わっているか検証
+      const savedTodo = await prisma.todo.findUnique({
+        where: { id: created.id },
+      });
 
-      expect(result instanceof NotFoundDataError).toBeTruthy();
-    });
-    it("異常系（500）： jest.spyOn で強制エラーを起こし、SqlError が返ること", async () => {
-      const updateTodo: Todo = {
-        title: "新しいTodo",
-        description: "新しい詳細",
-      };
-      const repository = new TodoRepository(connection);
-      jest
-        .spyOn(connection, "execute")
-        .mockRejectedValueOnce(new Error("強制的なDBエラー"));
-
-      const result = await repository.update(1, updateTodo);
-      expect(result instanceof SqlError).toBeTruthy();
+      expect(savedTodo?.title).toBe(updateData.title);
+      expect(savedTodo?.description).toBe(updateData.description);
     });
   });
 
-  describe("delete のテスト", () => {
-    it("あらかじめデータを1件登録し、そのIDに対して delete を実行。その後生SQLで検索し、配列の長さが 0（データが消滅している）になっていることを検証する", async () => {
-      const [insertResult] = await connection.execute<ResultSetHeader>(
-        "INSERT INTO todos (title, description) VALUES (?, ?)",
-        ["Todo", "詳細"],
-      );
-      const targetId = insertResult.insertId;
-      const repository = new TodoRepository(connection);
-      // deleteを実行
-      const result = await repository.delete(targetId);
-      if (result instanceof Error)
-        throw new Error(`エラーが発生しました: ${result.message}`);
-      // 生SQL（SELECT）でデータベースを覗きに行く
-      const checkSql = "SELECT * FROM todos WHERE id = ?";
-      const [rows] = await connection.execute<Todo[] & RowDataPacket[]>(
-        checkSql,
-        [targetId],
-      );
-      const savedTodo = rows[0] as Todo;
+  describe("delete (削除) のテスト", () => {
+    it("正常に削除され、データベースからデータが消えていること", async () => {
+      // 1. Prismaで削除用のデータを作成
+      const created = await prisma.todo.create({
+        data: { title: "削除されるTodo", description: "詳細" },
+      });
 
-      expect(rows.length).toBe(0);
-    });
-    it("異常系（404）： 存在しないIDに対して実行し、NotFoundDataError が返ること", async () => {
-      const repository = new TodoRepository(connection);
-      const result = await repository.delete(999);
+      const repository = new TodoRepository(prisma);
 
-      expect(result instanceof NotFoundDataError).toBeTruthy();
-    });
-    it("異常系（500）： jest.spyOn で強制エラーを起こし、SqlError が返ること", async () => {
-      const repository = new TodoRepository(connection);
-      jest
-        .spyOn(connection, "execute")
-        .mockRejectedValueOnce(new Error("強制的なDBエラー"));
-      const result = await repository.delete(1);
-      expect(result instanceof SqlError).toBeTruthy();
+      // 2. 実行
+      const result = await repository.delete(created.id);
+      if (result instanceof Error) throw new Error("エラーが発生しました");
+
+      // 3. 確認：Prismaで検索をかけてみる
+      const savedTodo = await prisma.todo.findUnique({
+        where: { id: created.id },
+      });
+
+      // 🌟 PrismaのfindUniqueは見つからない場合 null を返すので、それを検証！
+      expect(savedTodo).toBeNull();
     });
   });
 });

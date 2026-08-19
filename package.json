@@ -1,6 +1,7 @@
 {
   "scripts": {
     "test": "jest tests/unit --runInBand --coverage --forceExit --detectOpenHandles",
+    "test:api": "jest src/tests/api --runInBand --forceExit",
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts"
@@ -12,6 +13,7 @@
     "@types/node": "^26.1.1",
     "@typescript-eslint/eslint-plugin": "^8.63.0",
     "@typescript-eslint/parser": "^8.63.0",
+    "axios": "^1.19.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-config-standard": "^17.1.0",

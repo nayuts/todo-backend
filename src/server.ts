@@ -3,7 +3,8 @@ import express, { Express } from "express";
 import cors from "cors";
 // import mysql, { Connection } from "mysql2/promise";
 import * as dotenv from "dotenv";
-import { PrismaClient } from "./generated/prisma/client";
+import { PrismaClient } from "./generated/prisma/client"; // 🌟 v7仕様のパスで追加
+import { PrismaMariaDb } from "@prisma/adapter-mariadb"; // 🌟 v7では接続用のアダプターが必須
 
 // 🌟 自分たちが作った各層のパーツをインポート
 import { TodoRepository } from "./repositories/todo/todo-repository";
@@ -25,11 +26,29 @@ async function main() {
   app.use(cors()).use(express.json());
 
   // 1. データベース接続をPrismaに変更
-  const prisma = new PrismaClient();
+  // const prisma = new PrismaClient();
 
   // 2. PrismaをRepositoryに渡す
-  const todoRepository = new TodoRepository(prisma);
+  // const todoRepository = new TodoRepository(prisma);
   
+
+  // 1. データベースへの接続経路（アダプター）を作成する
+  //    🌟 Prisma v7から、PrismaClientは接続方法を明示的に渡さないと動かなくなりました
+  const adapter = new PrismaMariaDb({
+    host: MYSQL_HOST,
+    port: parseInt(MYSQL_PORT as string),
+    user: MYSQL_USER,
+    password: MYSQL_PASS,
+    database: MYSQL_DB,
+  });
+
+  // 2. 作成したアダプターを渡して、Prismaクライアントを初期化する
+  const prisma = new PrismaClient({ adapter });
+
+  // 3. PrismaをRepositoryに渡す
+  const todoRepository = new TodoRepository(prisma);
+
+  // --- (以降の todoService や todoController のコードはそのまま！) ---
   // 2. Repositoryを「Service（脳みそ）」に渡す
   const todoService = new TodoService(todoRepository);
   
