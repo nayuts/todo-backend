@@ -104,26 +104,43 @@ describe("Todo APIの統合テスト", () => {
     it("正常系： データを1件登録しておき、そのIDに対して axios.put で新しいデータを送信する。ステータスコードが 200 であり、DBの中身が書き換わっていることをPrismaで確認する", async () => {
       // todoを作っておく 
       const createdTodoList = await createTodoTestDatas(1); 
-      const targetTodo = createdTodoList[0]; const updateData: Todo = { title: "更新タスク", description: "更新した内容" }; 
+      const targetTodo = createdTodoList[0]; 
+      const updateData: Todo = {
+        title: "更新タスク", 
+        description: "更新した内容",
+      }; 
+
       const response = await axios.put<Todo>(`/api/todos/${targetTodo.id}`,updateData); 
-      const savedTodo = await prisma.todo.findUnique({ where: { id: targetTodo.id}, }); 
-      expect(response.status).toBe(200); expect(savedTodo?.title).toBe(updateData.title); 
+      expect(response.status).toBe(200);
+
+      const savedTodo = await prisma.todo.findUnique({ 
+        where: { id: targetTodo.id}, 
+      }); 
+      expect(savedTodo?.title).toBe(updateData.title); 
       expect(savedTodo?.description).toBe(updateData.description); 
     }); 
     it("異常系： 存在しないID（0 や 999）に対して axios.put を行い、ステータスコード 404 が返ってくることを確認する", async () => { 
-      const updateData: Todo = { title: "更新タスク", description: "更新した内容" }; 
-      const response = await axios.put<Todo>(`/api/todos/999`,updateData); 
-      expect(response.status).toBe(404); }); 
+      const updateData: Todo = { 
+        title: "更新タスク", 
+        description: "更新した内容",
+      }; 
+      const response = await axios.put<Todo>("/api/todos/999",updateData); 
+      expect(response.status).toBe(404); 
     }); 
+  }); 
     
   describe("DELETE /api/todos/:id (削除)", () => { 
     it("正常系： データを1件登録しておき、そのIDに対して axios.delete を実行する。ステータスコードが 204 であり、DBからデータが消えていること（findUnique が null を返すこと）をPrismaで確認する", async () => { 
       // todoを作っておく 
       const createdTodoList = await createTodoTestDatas(1); 
       const targetTodo = createdTodoList[0]; 
+
       const response = await axios.delete<Todo>(`/api/todos/${targetTodo.id}`); 
-      const savedTodo = await prisma.todo.findUnique({ where: { id: targetTodo.id}, });
       expect(response.status).toBe(204); 
+      
+      const savedTodo = await prisma.todo.findUnique({ 
+        where: { id: targetTodo.id}, 
+      });
       expect(savedTodo).toBe(null); 
     }); 
   });
