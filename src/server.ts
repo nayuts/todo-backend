@@ -11,6 +11,10 @@ import { TodoRepository } from "./repositories/todo/todo-repository";
 import { TodoService } from "./services/todo/todo-service";
 import { TodoController } from "./controllers/todo/todo-controller";
 
+import { UserRepository } from "./repositories/user/user-repository";
+import { AuthController } from "./controllers/auth/auth-controller";
+import { AuthService } from "./services/auth/auth-service";
+
 async function main() {
   dotenv.config();
   const { PORT, MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASS, MYSQL_DB } = process.env;
@@ -46,15 +50,22 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   // 3. PrismaをRepositoryに渡す
+  const userRepository = new UserRepository(prisma);
   const todoRepository = new TodoRepository(prisma);
 
   // --- (以降の todoService や todoController のコードはそのまま！) ---
   // 2. Repositoryを「Service（脳みそ）」に渡す
+  const authService = new AuthService(userRepository);
   const todoService = new TodoService(todoRepository);
   
   // 3. Serviceを「Controller（受付係）」に渡す
+  const authController = new AuthController(authService);
   const todoController = new TodoController(todoService);
 
+  // 🌟 最後に、Auth用のルーティングも追加！
+  app.use("/api/auth", authController.router);
+  app.use("/api/todos", todoController.router);
+  
   // 🌟 最後に、組み立てたControllerのルーティングをExpressアプリに登録する
   app.use("/api/todos", todoController.router);
 }
