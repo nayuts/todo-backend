@@ -2,7 +2,7 @@
 import { Request, Response, Router } from "express";
 import { User } from "../../models/user";
 import { AuthService } from "../../services/auth/auth-service";
-import { ConflictDataError } from "../../utils/error";
+import { ConflictDataError, UnauthorizedError } from "../../utils/error";
 
 export class AuthController {
   private authService: AuthService;
@@ -11,6 +11,29 @@ export class AuthController {
   constructor(authService: AuthService) {
     this.authService = authService;
     this.router = Router();
+
+    this.router.post("/signin", async (req: Request, res: Response) => {
+      const { email, password } = req.body;
+      
+      const result = await this.authService.signIn(email, password);
+
+      // 🌟 Service層が「認証失敗エラー」と教えてくれたので、受付係は 401（Unauthorized） を返します
+      if (result instanceof UnauthorizedError) {
+        res.status(401).json({ message: result.message });
+        return;
+      }
+
+      // それ以外の予期せぬエラーは 500
+      if (result instanceof Error) {
+        res.status(500).json(result.message);
+        return;
+      }
+
+      // 🌟 ここが実務のスタンダード！
+      // 発行されたJWT（result）を JSON の `token` というキーに詰めて返します。
+      // フロントエンドはこれを受け取り、以降のリクエストのヘッダーに付けて通信してきます。
+      res.status(200).json({ message: "ログイン成功！", token: result });
+    });
 
     // サインアップAPI（POST: /api/auth/signup）
     this.router.post("/signup", async (req: Request, res: Response) => {
