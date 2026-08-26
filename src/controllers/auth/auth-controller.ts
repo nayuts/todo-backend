@@ -52,8 +52,8 @@ export class AuthController {
         return;
       }
 
-      // 成功したら 201 Created と共に、作成されたIDを返す
-      res.status(201).json({ message: "登録成功", userId: result });
+      // 成功したら 201 Created と共に、JWTを返す
+      res.status(201).json({ message: "登録成功", token: result });
     });
   }
 }

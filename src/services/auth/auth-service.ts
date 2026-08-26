@@ -68,13 +68,16 @@ export class AuthService implements IAuthService {
     // 🌟 3. 上書きされた安全なデータを、Repository（DB）に渡す
     const result = await this.userRepository.create(user);
     
+    if (result instanceof Error) { 
+      return result;
+    }
     // return result; // 成功すれば作成されたIDが返る
 
     // JWTに埋め込む荷物（ペイロード）を準備
     const payload: AccessTokenPayload = {
-      userId: result.id as number,
-      name: result.name,
-      email: result.email,
+      userId: result,
+      name: user.name,
+      email: user.email,
     };
     // 通行証（JWT）を発行して返す！
     const token = generateAccessToken(payload);
