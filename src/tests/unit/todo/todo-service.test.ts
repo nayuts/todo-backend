@@ -25,8 +25,8 @@ describe("TodoServiceの単体テスト", () => {
       
       // 偽物のfindAllが呼ばれたら、このダミー配列を返すように設定
       const mockTodos: Todo[] = [
-        { id: 1, title: "テスト1", description: "詳細1" },
-        { id: 2, title: "テスト2", description: "詳細2" },
+        { id: 1, userId: 1, title: "テスト1", description: "詳細1" },
+        { id: 2, userId: 1, title: "テスト2", description: "詳細2" },
       ];
       mockRepository.findAll = jest.fn().mockResolvedValue(mockTodos);
 
@@ -46,7 +46,7 @@ describe("TodoServiceの単体テスト", () => {
   describe("getByID (1件取得) のテスト", () => {
     it("指定したIDのTodoが返ってくること", async () => {
       const mockRepository = createMockTodoRepository();
-      const mockTodo: Todo = { id: 1, title: "テスト", description: "詳細" };
+      const mockTodo: Todo = { id: 1, userId: 1, title: "テスト", description: "詳細" };
       
       mockRepository.getByID = jest.fn().mockResolvedValue(mockTodo);
 

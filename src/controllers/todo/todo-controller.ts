@@ -3,6 +3,8 @@ import { Router } from "express";
 import { ITodoService } from "../../services/todo/todo-service.interface";
 import { NotFoundDataError } from "../../utils/error";
 import { Todo } from "../../models/todo";
+import { requireAuth } from "../../middleware/auth";
+import { todo } from "node:test";
 
 export class TodoController {
   private todoService: ITodoService;
@@ -12,6 +14,10 @@ export class TodoController {
   constructor(todoService: ITodoService) {
     this.todoService = todoService;
     this.router = Router();
+
+    // router.use を使うと、「これより下に書かれているすべてのAPI」の前に門番が立ちます。
+    this.router.use(requireAuth);
+    // ※これ以降のAPIは、ログインしていないと絶対にアクセスできません
 
     // 1. 全件取得 (GET: /api/todos)
     this.router.get("/", async (_, res) => {
@@ -43,7 +49,15 @@ export class TodoController {
 
     // 3. 新規作成 (POST: /api/todos)
     this.router.post("/", async (req, res) => {
-      const todo: Todo = req.body;
+      const { title, description } = req.body;
+      // 安全なユーザーデータを取り出す
+      const payload = res.locals.payload;
+
+      const todo: Todo = {
+        userId: payload.userId,
+        title: title,
+        description: description,
+      }
       const result = await this.todoService.create(todo);
 
       if (result instanceof Error) {

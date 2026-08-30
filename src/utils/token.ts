@@ -19,3 +19,17 @@ export function generateAccessToken(payload: AccessTokenPayload): string {
   const token = jwt.sign(payload, secretKey, { algorithm: "HS256", expiresIn: "24h" });
   return token;
 }
+
+// 🌟 JWT（通行証）が本物か検証する関数
+export function verifyAccessToken(token: string): AccessTokenPayload | Error {
+  const secretKey = SECRET_KEY as string;
+  try {
+    // jwt.verify が「署名（ハンコ）」と「有効期限」をチェックしてくれます！
+    // 問題なければ、中に入っている荷物（payload）を取り出して返します。
+    const decoded = jwt.verify(token, secretKey) as AccessTokenPayload;
+    return decoded;
+  } catch (e) {
+    // 偽造されている、または24時間経って有効期限が切れている場合はエラー！
+    return new Error("無効なトークン、または有効期限が切れています");
+  }
+}

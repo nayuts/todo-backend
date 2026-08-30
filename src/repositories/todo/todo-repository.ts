@@ -3,6 +3,7 @@ import { Todo } from "../../models/todo";
 import { PrismaClient } from "../../generated/prisma/client";
 import { NotFoundDataError, SqlError } from "../../utils/error";
 import { ITodoRepository } from "./todo-repository.interface";
+import { TodoMapper } from "../../utils/mappers/todo-mapper";
 
 export class TodoRepository implements ITodoRepository {
   private prisma: PrismaClient;
@@ -14,8 +15,10 @@ export class TodoRepository implements ITodoRepository {
 
   public async findAll(): Promise<Todo[] | Error> {
     try {
-      // 生SQL: SELECT * FROM todos;
-      return await this.prisma.todo.findMany();
+      const prismaTodos = await this.prisma.todo.findMany();
+      // 🌟 Mapperを使って、配列の中身をすべてアプリ用の型に変換する
+      const todos = prismaTodos.map((todo) => TodoMapper.toDomain(todo));
+      return todos;
     } catch (err) {
       return new SqlError(`sql error`);
     }
@@ -23,12 +26,11 @@ export class TodoRepository implements ITodoRepository {
 
   public async getByID(id: number): Promise<Todo | Error> {
     try {
-      // 生SQL: SELECT * FROM todos WHERE id = ?;
-      const todo = await this.prisma.todo.findUnique({
-        where: { id: id }
-      });
-
-      if (!todo) return new NotFoundDataError(`todo is not found`);
+      const prismaTodo = await this.prisma.todo.findUnique({ where: { id: id } });
+      if (!prismaTodo) return new NotFoundDataError(`todo is not found`);
+      
+      // 🌟 Mapperを使って変換
+      const todo = TodoMapper.toDomain(prismaTodo);
       return todo;
     } catch (err) {
       return new SqlError(`sql error`);

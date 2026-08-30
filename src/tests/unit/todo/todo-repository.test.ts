@@ -22,7 +22,7 @@ describe("TodoRepositoryのテスト", () => {
   describe("create (新規作成) のテスト", () => {
     it("データベースに正しく保存され、新しいIDが返ってくること", async () => {
       const repository = new TodoRepository(prisma); // prismaを渡す
-      const newTodo: Todo = { title: "テスト用タイトル", description: "テスト用詳細" };
+      const newTodo: Todo = { userId: 1, title: "テスト用タイトル", description: "テスト用詳細" };
 
       const result = await repository.create(newTodo);
 
@@ -90,7 +90,7 @@ describe("TodoRepositoryのテスト", () => {
       });
 
       const repository = new TodoRepository(prisma);
-      const updateData: Todo = { title: "新しいタイトル", description: "新しい詳細" };
+      const updateData: Todo = { userId: 1, title: "新しいタイトル", description: "新しい詳細" };
 
       // 2. 実行
       const result = await repository.update(created.id, updateData);
