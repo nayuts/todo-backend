@@ -13,14 +13,17 @@ export class TodoRepository implements ITodoRepository {
     this.prisma = prisma;
   }
 
-  public async findAll(): Promise<Todo[] | Error> {
+  // 🌟 変更：誰のTodoを取り出すか、引数で userId を受け取るようにする
+  public async findAll(userId: number): Promise<Todo[] | Error> {
     try {
-      const prismaTodos = await this.prisma.todo.findMany();
-      // 🌟 Mapperを使って、配列の中身をすべてアプリ用の型に変換する
+      // 🌟 重要：Prismaを使って、user_id が一致するTodo「だけ」を検索する！
+      const prismaTodos = await this.prisma.todo.findMany({
+        where: { user_id: userId } // 👈 これが超重要！
+      });
       const todos = prismaTodos.map((todo) => TodoMapper.toDomain(todo));
       return todos;
-    } catch (err) {
-      return new SqlError(`sql error`);
+    } catch (error) {
+      return new SqlError("Todoの取得に失敗しました");
     }
   }
 
@@ -71,16 +74,23 @@ export class TodoRepository implements ITodoRepository {
     }
   }
 
-  public async delete(id: number): Promise<void | Error> {
+  public async delete(id: number, userId: number): Promise<void | Error> {
+    try {
+      const targetTodo = await this.prisma.todo.findFirst({ 
+        where: { id: id, user_id: userId } 
+      });
+      if (!targetTodo) {
+        return new NotFoundDataError(`todo is not found`);
+      }
+    } catch (err) {
+      return new SqlError(`sql error`);
+    }
     try {
       // 生SQL: DELETE FROM todos...
       await this.prisma.todo.delete({
         where: { id: id }
       });
     } catch (err) {
-      if (err instanceof Error && err.message.includes("Record to delete does not exist")) {
-        return new NotFoundDataError(`todo is not found`);
-      }
       return new SqlError(`sql error`);
     }
   }

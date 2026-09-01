@@ -1,5 +1,5 @@
 // src/controllers/todo/todo-controller.ts
-import { Router } from "express";
+import { Request, Response, Router } from "express";
 import { ITodoService } from "../../services/todo/todo-service.interface";
 import { NotFoundDataError } from "../../utils/error";
 import { Todo } from "../../models/todo";
@@ -20,8 +20,12 @@ export class TodoController {
     // ※これ以降のAPIは、ログインしていないと絶対にアクセスできません
 
     // 1. 全件取得 (GET: /api/todos)
-    this.router.get("/", async (_, res) => {
-      const result = await this.todoService.findAll();
+    this.router.get("/", async (req: Request, res: Response) => {
+      // 🌟 1. 門番が確認済みの安全なユーザーIDを控室から取り出す
+      const payload = res.locals.payload;
+
+      // 🌟 2. そのIDをServiceに渡す
+      const result = await this.todoService.findAll(payload.userId);
 
       if (result instanceof Error) {
         res.status(500).send();
@@ -72,6 +76,11 @@ export class TodoController {
     this.router.put("/:id", async (req, res) => {
       const id = parseInt(req.params.id);
       const todo: Todo = req.body;
+
+      const payload = res.locals.payload;
+      // 上書きセット
+      todo.userId = payload.userId;
+
       const result = await this.todoService.update(id, todo);
 
       if (result instanceof NotFoundDataError) {
@@ -88,7 +97,8 @@ export class TodoController {
     // 5. 削除 (DELETE: /api/todos/:id)
     this.router.delete("/:id", async (req, res) => {
       const id = parseInt(req.params.id);
-      const result = await this.todoService.delete(id);
+      const payload = res.locals.payload;
+      const result = await this.todoService.delete(id, payload.userId);
 
       if (result instanceof Error) {
         res.status(500).send();

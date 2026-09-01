@@ -34,7 +34,7 @@ describe("TodoServiceの単体テスト", () => {
       const service = new TodoService(mockRepository);
 
       // 3. 実際にServiceのメソッドを実行
-      const result = await service.findAll();
+      const result = await service.findAll(1);
 
       // 4. 結果の検証（アサーション）
       if (result instanceof Error) throw new Error("エラーが発生しました");
@@ -125,7 +125,7 @@ describe("TodoServiceの単体テスト", () => {
             mockRepository.delete = jest.fn().mockResolvedValue(undefined);
 
             const service = new TodoService(mockRepository);
-            const result = await service.delete(1);
+            const result = await service.delete(1, 1);
 
             expect(result).toBe(undefined);
         });
