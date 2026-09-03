@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
@@ -23,8 +23,8 @@ model User {
   name      String
   email     String   @unique // 💡 同じメールアドレスは登録できないようにする
   password  String   // ここにはハッシュ化された長〜い文字列が入ります
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("users")
 }

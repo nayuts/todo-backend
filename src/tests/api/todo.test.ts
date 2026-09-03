@@ -2,6 +2,9 @@
 import axios from "axios";
 import { Todo } from "../../models/todo";
 import { createDBConnection } from "../utils/database/database";
+import { generateAccessToken } from "../../utils/token"
+
+let testUserId: number;
 
 // 🌟 database.ts が環境変数の読み込みやPrismaの初期化をすべてやってくれます！
 const prisma = createDBConnection();
