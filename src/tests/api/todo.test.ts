@@ -33,7 +33,25 @@ async function createTodoTestDatas(num: number): Promise<Todo[]> {
 
 beforeEach(async () => {
   await prisma.todo.deleteMany(); // 毎回DBをクリア
+  await prisma.user.deleteMany(); // ユーザークリア
+  const testUser =await prisma.user.create({
+    data: {
+      name: "テストユーザー",
+      email: "test@testes.com",
+      password: "test",
+    },
+  });
+  testUserId = testUser.id;
 });
+
+function getAuthHeader() {
+  const token = generateAccessToken({
+    userId: testUserId,
+    name: "テストユーザー",
+    email: "test@testes.com",
+  });
+  return { Authorization: `Bearer ${token}` };
+};
 
 afterAll(async () => {
   await prisma.$disconnect(); // コネクションプールの破壊を防ぐため afterAll を使用
