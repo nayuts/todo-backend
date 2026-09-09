@@ -22,6 +22,7 @@ async function createTodoTestDatas(num: number): Promise<Todo[]> {
   for (let index = 0; index < num; index++) {
     const created = await prisma.todo.create({
       data: {
+        user_id: testUserId,
         title: `サンプルタイトル${index}`,
         description: `サンプル詳細${index}`,
       },
@@ -49,7 +50,7 @@ function getAuthHeader() {
     userId: testUserId,
     name: "テストユーザー",
     email: "test@testes.com",
-  });
+  })
   return { Authorization: `Bearer ${token}` };
 };
 
@@ -65,7 +66,9 @@ describe("Todo APIの統合テスト", () => {
       const createdTodoList = await createTodoTestDatas(5);
 
       // 2. 実行：Axiosを使って、本物のAPIエンドポイントにGETリクエストを投げる！
-      const response = await axios.get<Todo[]>("/api/todos");
+      const response = await axios.get<Todo[]>("/api/todos",{
+        headers: getAuthHeader(),
+      });
 
       // 3. 確認：ステータスコードは200か？ 件数は5件か？
       expect(response.status).toBe(200);
@@ -74,9 +77,16 @@ describe("Todo APIの統合テスト", () => {
     });
 
     it("データが空の場合、ステータス200と空の配列が返ること", async () => {
-      const response = await axios.get<Todo[]>("/api/todos");
+      const response = await axios.get<Todo[]>("/api/todos",{
+        headers: getAuthHeader(),
+      });
       expect(response.status).toBe(200);
       expect(response.data.length).toBe(0);
+    });
+
+    it("トークンがない（未ログイン）場合、門番に弾かれて401が返ること", async () => {
+      const response = await axios.get<Todo[]>("/api/todos");
+      expect(response.status).toBe(401);
     });
   });
 
@@ -86,7 +96,9 @@ describe("Todo APIの統合テスト", () => {
       const targetTodo = createdTodoList[0];
 
       // 実行：URLパラメータにIDを埋め込んでGETリクエスト
-      const response = await axios.get<Todo>(`/api/todos/${targetTodo.id}`);
+      const response = await axios.get<Todo>(`/api/todos/${targetTodo.id}`,{
+        headers: getAuthHeader(),
+      });
 
       expect(response.status).toBe(200);
       expect(response.data.id).toBe(targetTodo.id);
@@ -94,8 +106,15 @@ describe("Todo APIの統合テスト", () => {
     });
 
     it("存在しないIDを指定した場合、ステータス404が返ること", async () => {
-      const response = await axios.get<Todo>("/api/todos/999");
+      const response = await axios.get<Todo>("/api/todos/999",{
+        headers: getAuthHeader(),
+      });
       expect(response.status).toBe(404);
+    });
+
+    it("トークンがない（未ログイン）場合、門番に弾かれて401が返ること", async () => {
+      const response = await axios.get<Todo>(`/api/todos/999`);
+      expect(response.status).toBe(401);
     });
   });
 
@@ -107,7 +126,9 @@ describe("Todo APIの統合テスト", () => {
       };
 
       // 実行：リクエストボディ（JSON）を付けてPOSTリクエスト
-      const response = await axios.post<number>("/api/todos", requestBody);
+      const response = await axios.post<number>("/api/todos", requestBody,{
+        headers: getAuthHeader(),
+      });
       const createdId = response.data;
 
       expect(response.status).toBe(201);
@@ -117,6 +138,15 @@ describe("Todo APIの統合テスト", () => {
         where: { id: createdId }
       });
       expect(savedTodo?.title).toBe(requestBody.title);
+    });
+
+    it("トークンがない（未ログイン）場合、門番に弾かれて401が返ること", async () => {
+      const requestBody: Todo = {
+        title: "新タスク",
+        description: "APIテストから作成"
+      };
+      const response = await axios.post<number>("/api/todos", requestBody);
+      expect(response.status).toBe(401);
     });
   });
 
@@ -131,7 +161,9 @@ describe("Todo APIの統合テスト", () => {
         description: "更新した内容",
       }; 
 
-      const response = await axios.put<Todo>(`/api/todos/${targetTodo.id}`,updateData); 
+      const response = await axios.put<Todo>(`/api/todos/${targetTodo.id}`,updateData,{
+        headers: getAuthHeader(),
+      });
       expect(response.status).toBe(200);
 
       const savedTodo = await prisma.todo.findUnique({ 
@@ -140,14 +172,26 @@ describe("Todo APIの統合テスト", () => {
       expect(savedTodo?.title).toBe(updateData.title); 
       expect(savedTodo?.description).toBe(updateData.description); 
     }); 
+
     it("異常系： 存在しないID（0 や 999）に対して axios.put を行い、ステータスコード 404 が返ってくることを確認する", async () => { 
       const updateData: Todo = { 
         title: "更新タスク", 
         description: "更新した内容",
       }; 
-      const response = await axios.put<Todo>("/api/todos/999",updateData); 
+      const response = await axios.put<Todo>("/api/todos/999",updateData,{
+        headers: getAuthHeader(),
+      });
       expect(response.status).toBe(404); 
     }); 
+
+    it("トークンがない（未ログイン）場合、門番に弾かれて401が返ること", async () => {
+      const updateData: Todo = { 
+        title: "更新タスク", 
+        description: "更新した内容",
+      }; 
+      const response = await axios.put<Todo>("/api/todos/999",updateData);
+      expect(response.status).toBe(401);
+    });
   }); 
     
   describe("DELETE /api/todos/:id (削除)", () => { 
@@ -156,7 +200,9 @@ describe("Todo APIの統合テスト", () => {
       const createdTodoList = await createTodoTestDatas(1); 
       const targetTodo = createdTodoList[0]; 
 
-      const response = await axios.delete<Todo>(`/api/todos/${targetTodo.id}`); 
+      const response = await axios.delete<Todo>(`/api/todos/${targetTodo.id}`,{
+        headers: getAuthHeader(),
+      });
       expect(response.status).toBe(204); 
       
       const savedTodo = await prisma.todo.findUnique({ 
@@ -164,6 +210,13 @@ describe("Todo APIの統合テスト", () => {
       });
       expect(savedTodo).toBe(null); 
     }); 
+
+    it("トークンがない（未ログイン）場合、門番に弾かれて401が返ること", async () => {
+      const createdTodoList = await createTodoTestDatas(1); 
+      const targetTodo = createdTodoList[0]; 
+      const response = await axios.delete<Todo>(`/api/todos/${targetTodo.id}`);
+      expect(response.status).toBe(401);
+    });
   });
 });
 
