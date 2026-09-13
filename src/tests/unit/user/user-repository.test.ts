@@ -34,6 +34,33 @@ describe("UserRepository のユニットテスト", () => {
     });
   });
 
+  describe("getByID (IDで取得)", () => {
+    it("存在するIDの場合、ユーザー情報が返ってくること", async () => {
+      // 🌟 準備 (Arrange)
+      const repository = new UserRepository(prisma);
+      const newUser: User = { name: "テスト", email: "test3@example.com", password: "hashed_password" };
+      const createdId = await repository.create(newUser);
+
+      // 🌟 実行 (Act)
+      const result = await repository.getByID(createdId as number);
+
+      // 🌟 確認 (Assert)
+      expect(result).not.toBeInstanceOf(Error);
+      expect((result as User).name).toBe("テスト");
+    });
+
+    it("存在しないIDの場合、NotFoundDataErrorが返ること", async () => {
+      // 🌟 準備 (Arrange)
+      const repository = new UserRepository(prisma);
+
+      // 🌟 実行 (Act)
+      const result = await repository.getByID(999999);
+
+      // 🌟 確認 (Assert)
+      expect(result).toBeInstanceOf(NotFoundDataError);
+    });
+  });
+
   describe("getByEmail (メールアドレスで取得)", () => {
     it("存在するメールアドレスの場合、ユーザー情報が返ってくること", async () => {
       // 🌟 準備 (Arrange)

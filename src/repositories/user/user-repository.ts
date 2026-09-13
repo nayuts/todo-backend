@@ -3,6 +3,7 @@ import { PrismaClient } from "../../generated/prisma/client";
 import { User } from "../../models/user";
 import { NotFoundDataError, SqlError } from "../../utils/error";
 import { IUserRepository } from "./user-repository.interface";
+import { UserMapper } from "../../utils/mappers/user-mapper";
 
 export class UserRepository implements IUserRepository {
   private prisma: PrismaClient;
@@ -41,4 +42,22 @@ export class UserRepository implements IUserRepository {
       return new SqlError("ユーザーの作成に失敗しました");
     }
   }
+
+  public async getByID(id: number): Promise<User | Error> {
+    try {
+      const prismaUser = await this.prisma.user.findUnique({
+        where: { id: id },
+      });
+
+      if (!prismaUser) {
+        return new NotFoundDataError("ユーザーが見つかりません");
+      }
+
+      // 第3章で作ったMapperを使って、アプリ用の型に変換して返す
+      return UserMapper.toDomain(prismaUser);
+    } catch (error) {
+      return new SqlError("データベースエラー");
+    }
+  }
 }
+

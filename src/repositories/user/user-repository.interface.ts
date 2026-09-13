@@ -5,4 +5,5 @@ import { User } from "../../models/user";
 export interface IUserRepository {
   create(user: User): Promise<number | Error>;
   getByEmail(email: string): Promise<User | Error>;
+  getByID(id: number): Promise<User | Error>;
 }
