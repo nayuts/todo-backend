@@ -15,6 +15,7 @@ function createMockUserRepository(): jest.Mocked<IUserRepository> {
   return {
     create: jest.fn(),
     getByEmail: jest.fn(),
+    getByID: jest.fn(),
   };
 }
 

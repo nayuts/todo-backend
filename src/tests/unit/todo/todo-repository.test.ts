@@ -46,13 +46,13 @@ describe("TodoRepositoryのテスト", () => {
       // 🌟 生SQLのINSERT文を何行も書く代わりに、createManyで一気に作成！
       await prisma.todo.createMany({
         data: [
-          { title: "ダミー1", description: "詳細1" },
-          { title: "ダミー2", description: "詳細2" },
+          { title: "ダミー1", description: "詳細1", user_id: 1 },
+          { title: "ダミー2", description: "詳細2", user_id: 1 },
         ],
       });
 
       const repository = new TodoRepository(prisma);
-      const result = await repository.findAll();
+      const result = await repository.findAll(1);
 
       if (result instanceof Error) throw new Error("エラーが発生しました");
       expect(result.length).toBe(2);
@@ -110,13 +110,13 @@ describe("TodoRepositoryのテスト", () => {
     it("正常に削除され、データベースからデータが消えていること", async () => {
       // 1. Prismaで削除用のデータを作成
       const created = await prisma.todo.create({
-        data: { title: "削除されるTodo", description: "詳細" },
+        data: { title: "削除されるTodo", description: "詳細", user_id: 1 },
       });
 
       const repository = new TodoRepository(prisma);
 
       // 2. 実行
-      const result = await repository.delete(created.id);
+      const result = await repository.delete(created.id, created.user_id);
       if (result instanceof Error) throw new Error("エラーが発生しました");
 
       // 3. 確認：Prismaで検索をかけてみる
