@@ -46,7 +46,8 @@ export class TodoRepository implements ITodoRepository {
       const result = await this.prisma.todo.create({
         data: {
           title: todo.title,
-          description: todo.description
+          description: todo.description,
+          user_id: todo.userId
         }
       });
       return result.id;
